@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xếp hàng vào Container — 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --bg:#12161B;
+    --panel:#171C22;
+    --panel-alt:#1D242C;
+    --panel-raise:#232B34;
+    --border:#2B333C;
+    --text:#E7EAEE;
+    --text-dim:#8A93A0;
+    --accent:#F2B705;
+    --accent-dim:#5C4A08;
+    --danger:#E0715A;
+    --good:#4CAF7D;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--display);
+    display:grid;
+    grid-template-columns: 372px 1fr;
+    height:100vh;
+    overflow:hidden;
+  }
+  @media (max-width: 860px){
+    body{ grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    #sidebar{ max-height: 46vh; }
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    overflow-y:auto;
+    padding:20px 18px 32px;
+  }
+  #sidebar::-webkit-scrollbar{width:8px;}
+  #sidebar::-webkit-scrollbar-thumb{background:var(--panel-raise); border-radius:4px;}
+
+  .brand{
+    display:flex; align-items:baseline; gap:8px; margin-bottom:2px;
+  }
+  .brand .mark{
+    width:10px;height:10px;background:var(--accent);flex:none;
+    transform:translateY(-1px);
+  }
+  .brand h1{
+    font-size:17px; font-weight:600; margin:0; letter-spacing:-0.01em;
+  }
+  .brand-sub{
+    color:var(--text-dim); font-size:12px; margin:0 0 22px; font-family:var(--mono);
+  }
+
+  .section{ margin-bottom: 22px; }
+  .section-title{
+    font-size:12.5px; color:var(--text-dim); margin:0 0 10px;
+    font-weight:500; letter-spacing:0.01em;
+    border-bottom:1px solid var(--border);
+    padding-bottom:7px;
+  }
+
+  .field-row{ display:flex; gap:8px; margin-bottom:8px; }
+  .field{ flex:1; min-width:0; }
+  .field label{
+    display:block; font-size:10.5px; color:var(--text-dim);
+    margin-bottom:3px; font-family:var(--mono);
+  }
+  input[type=number], input[type=text]{
+    width:100%; background:var(--panel-alt); border:1px solid var(--border);
+    color:var(--text); padding:7px 8px; border-radius:3px; font-size:13px;
+    font-family:var(--mono);
+  }
+  input[type=number]:focus, input[type=text]:focus{
+    outline:none; border-color:var(--accent);
+  }
+  input[type=number]::-webkit-inner-spin-button{ opacity:0.4; }
+
+  .preset-row{ display:flex; gap:6px; margin-top:4px; flex-wrap:wrap; }
+  .chip{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text-dim);
+    font-family:var(--mono); font-size:11px; padding:5px 9px; border-radius:3px;
+    cursor:pointer; transition:border-color .15s, color .15s;
+  }
+  .chip:hover{ border-color:var(--accent); color:var(--text); }
+
+  table#boxTable{ width:100%; border-collapse:collapse; font-size:12px; }
+  table#boxTable th{
+    text-align:left; font-weight:500; color:var(--text-dim); font-size:10px;
+    font-family:var(--mono); padding:0 4px 6px; border-bottom:1px solid var(--border);
+  }
+  table#boxTable td{ padding:4px 4px; vertical-align:middle; }
+  table#boxTable input{ padding:5px 5px; font-size:11.5px; }
+  .swatch{
+    width:14px; height:14px; border-radius:2px; display:inline-block; flex:none;
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  .name-cell{ display:flex; align-items:center; gap:6px; }
+  .name-cell input{ width:78px; }
+  .dim-cell input{ width:44px; }
+  .num-cell input{ width:52px; }
+  .qty-cell input{ width:40px; }
+  .del-btn{
+    background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:16px;
+    line-height:1; padding:2px 4px;
+  }
+  .del-btn:hover{ color:var(--danger); }
+
+  .add-row-btn{
+    width:100%; margin-top:8px; background:none; border:1px dashed var(--border);
+    color:var(--text-dim); padding:8px; border-radius:3px; cursor:pointer;
+    font-family:var(--mono); font-size:11.5px; transition:border-color .15s,color .15s;
+  }
+  .add-row-btn:hover{ border-color:var(--accent); color:var(--text); }
+
+  .toggle-row{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:12.5px; color:var(--text); margin-top:10px;
+  }
+  .switch{ position:relative; width:34px; height:19px; flex:none; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider-ui{
+    position:absolute; inset:0; background:var(--panel-alt); border:1px solid var(--border);
+    border-radius:10px; cursor:pointer; transition:.15s;
+  }
+  .slider-ui::before{
+    content:''; position:absolute; width:13px; height:13px; left:2px; top:2px;
+    background:var(--text-dim); border-radius:50%; transition:.15s;
+  }
+  .switch input:checked + .slider-ui{ background:var(--accent-dim); border-color:var(--accent); }
+  .switch input:checked + .slider-ui::before{ transform:translateX(15px); background:var(--accent); }
+
+  .primary-btn{
+    width:100%; background:var(--accent); color:#1A1400; border:none;
+    padding:12px; border-radius:3px; font-family:var(--display); font-weight:600;
+    font-size:14px; cursor:pointer; margin-top:6px; letter-spacing:0.01em;
+    transition:filter .15s;
+  }
+  .primary-btn:hover{ filter:brightness(1.08); }
+  .primary-btn:active{ filter:brightness(0.95); }
+
+  .stat-line{
+    display:flex; justify-content:space-between; font-size:12.5px;
+    padding:6px 0; border-bottom:1px solid var(--border);
+    font-family:var(--mono);
+  }
+  .stat-line:last-child{ border-bottom:none; }
+  .stat-line .v{ color:var(--text); font-weight:600; }
+  .stat-line .v.warn{ color:var(--danger); }
+  .stat-line .v.ok{ color:var(--good); }
+
+  .warn-box{
+    margin-top:10px; background:rgba(224,113,90,0.08); border:1px solid rgba(224,113,90,0.35);
+    color:#F0A08D; font-size:11.5px; padding:8px 10px; border-radius:3px; font-family:var(--mono);
+    line-height:1.5;
+  }
+
+  /* ---------- Viewport ---------- */
+  #viewport{ position:relative; overflow:hidden; background:radial-gradient(ellipse at 50% 30%, #1a2028 0%, #0d1014 100%); }
+  #canvas-holder{ position:absolute; inset:0; }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; }
+
+  .overlay{ position:absolute; pointer-events:none; }
+  .overlay > *{ pointer-events:auto; }
+
+  #topbar{
+    top:16px; left:16px; right:16px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+  }
+  #readout{
+    background:rgba(23,28,34,0.82); border:1px solid var(--border); backdrop-filter:blur(6px);
+    padding:10px 14px; border-radius:4px; font-family:var(--mono); font-size:11.5px;
+    color:var(--text-dim); min-width:190px;
+  }
+  #readout .rt-title{ color:var(--text); font-family:var(--display); font-weight:600; font-size:13px; margin-bottom:6px;}
+  #readout .rt-line{ display:flex; justify-content:space-between; gap:14px; margin:2px 0;}
+  #readout .rt-line b{ color:var(--accent); font-weight:600; }
+
+  #legend{
+    background:rgba(23,28,34,0.82); border:1px solid var(--border); backdrop-filter:blur(6px);
+    padding:10px 12px; border-radius:4px; font-family:var(--mono); font-size:11px;
+    max-width:220px; max-height: 40vh; overflow-y:auto;
+  }
+  #legend .lg-title{ color:var(--text-dim); font-size:10px; margin-bottom:7px; letter-spacing:0.02em;}
+  .lg-row{ display:flex; align-items:center; gap:7px; padding:3px 0; color:var(--text-dim); }
+  .lg-row .swatch{ width:11px; height:11px; }
+  .lg-row .lg-name{ color:var(--text); flex:1; }
+
+  .pc-row{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:11px; font-family:var(--mono); color:var(--text-dim);
+    padding:5px 2px; border-bottom:1px solid var(--border); cursor:pointer;
+  }
+  .pc-row:last-child{ border-bottom:none; }
+  .pc-row:hover{ color:var(--text); }
+  .pc-row.active{ color:var(--accent); }
+  .pc-row .pc-bar{
+    flex:1; height:4px; background:var(--panel-alt); margin:0 8px; border-radius:2px; overflow:hidden;
+  }
+  .pc-row .pc-bar-fill{ height:100%; background:var(--accent); }
+
+  #containerTabs{
+    top:60px; left:16px; right:16px; display:flex; gap:6px; flex-wrap:wrap;
+    justify-content:center;
+  }
+  .cont-tab{
+    background:rgba(23,28,34,0.82); border:1px solid var(--border); color:var(--text-dim);
+    font-family:var(--mono); font-size:11px; padding:6px 11px; border-radius:5px;
+    cursor:pointer; backdrop-filter:blur(6px); white-space:nowrap;
+  }
+  .cont-tab:hover{ color:var(--text); border-color:var(--accent); }
+  .cont-tab.active{ color:#1A1400; background:var(--accent); border-color:var(--accent); }
+
+  #viewbtns{
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    display:flex; gap:4px; background:rgba(23,28,34,0.82); border:1px solid var(--border);
+    padding:4px; border-radius:5px; backdrop-filter:blur(6px);
+  }
+  #viewbtns button{
+    background:none; border:none; color:var(--text-dim); font-family:var(--mono);
+    font-size:11px; padding:6px 10px; border-radius:3px; cursor:pointer;
+  }
+  #viewbtns button:hover{ color:var(--text); background:var(--panel-raise); }
+  #viewbtns button.active{ color:#1A1400; background:var(--accent); }
+
+  #controlbar{
+    position:absolute; bottom:16px; left:16px; right:16px;
+    background:rgba(23,28,34,0.88); border:1px solid var(--border); backdrop-filter:blur(6px);
+    border-radius:6px; padding:10px 14px; display:flex; align-items:center; gap:12px;
+  }
+  .ctrl-btn{
+    background:var(--panel-raise); border:1px solid var(--border); color:var(--text);
+    width:32px; height:32px; border-radius:4px; cursor:pointer; flex:none;
+    display:flex; align-items:center; justify-content:center; font-size:13px;
+  }
+  .ctrl-btn:hover{ border-color:var(--accent); }
+  #playBtn{ width:38px; height:38px; background:var(--accent); color:#1A1400; border:none; font-size:14px;}
+  #scrub{ flex:1; accent-color: var(--accent); }
+  #speedSel{
+    background:var(--panel-raise); border:1px solid var(--border); color:var(--text);
+    font-family:var(--mono); font-size:11px; padding:6px 8px; border-radius:4px;
+  }
+  #scrubLabel{ font-family:var(--mono); font-size:11px; color:var(--text-dim); min-width:62px; text-align:right;}
+
+  #emptyState{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:6px; color:var(--text-dim); text-align:center; padding:40px;
+  }
+  #emptyState h2{ font-size:16px; color:var(--text); font-weight:600; margin:0; }
+  #emptyState p{ font-size:13px; max-width:320px; margin:0; line-height:1.6; font-family:var(--mono); }
+
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb{ background:#333d47; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="brand"><span class="mark"></span><h1>Xếp hàng Container</h1></div>
+  <p class="brand-sub">Sắp xếp kiện hàng tối ưu — 3D</p>
+
+  <div class="section">
+    <div class="section-title">Kích thước container (m)</div>
+    <div class="field-row">
+      <div class="field"><label>Dài (L)</label><input type="number" id="contL" value="12.03" step="0.01" min="0.1"></div>
+      <div class="field"><label>Rộng (W)</label><input type="number" id="contW" value="2.35" step="0.01" min="0.1"></div>
+      <div class="field"><label>Cao (H)</label><input type="number" id="contH" value="2.39" step="0.01" min="0.1"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Tải trọng tối đa / container (kg, để trống = không giới hạn)</label><input type="number" id="maxWeight" placeholder="VD: 26000" min="0"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Số container tối đa (để trống = tự động thêm không giới hạn)</label><input type="number" id="maxContainers" placeholder="Tự động" min="1" step="1"></div>
+    </div>
+    <div class="preset-row">
+      <span class="chip" data-preset="20">Container 20ft</span>
+      <span class="chip" data-preset="40">Container 40ft</span>
+      <span class="chip" data-preset="40hc">40ft High Cube</span>
+    </div>
+    <div class="toggle-row">
+      <span>Gắn đầu kéo</span>
+      <label class="switch"><input type="checkbox" id="truckToggle" checked><span class="slider-ui"></span></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Tuỳ chọn xếp hàng</div>
+    <div class="toggle-row">
+      <span>Cho phép xoay thùng hàng</span>
+      <label class="switch"><input type="checkbox" id="allowRotation" checked><span class="slider-ui"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span>Ưu tiên vật nặng xuống dưới</span>
+      <label class="switch"><input type="checkbox" id="prioritizeWeight" checked><span class="slider-ui"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span>Ưu tiên xếp từ trong ra ngoài</span>
+      <label class="switch"><input type="checkbox" id="insideOutPriority"><span class="slider-ui"></span></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Danh sách kiện hàng</div>
+    <table id="boxTable">
+      <thead>
+        <tr>
+          <th>Tên</th><th>D</th><th>R</th><th>C</th><th>KL(kg)</th><th>SL</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="boxTbody"></tbody>
+    </table>
+    <button class="add-row-btn" id="addRowBtn">+ Thêm loại hàng</button>
+  </div>
+
+  <button class="primary-btn" id="packBtn">Xếp hàng vào container</button>
+
+  <div class="section" style="margin-top:20px;">
+    <div class="section-title">Kết quả</div>
+    <div id="statsBox">
+      <div class="stat-line"><span>Số container cần dùng</span><span class="v" id="statContainers">—</span></div>
+      <div class="stat-line"><span>Thể tích sử dụng (TB)</span><span class="v" id="statVol">—</span></div>
+      <div class="stat-line"><span>Tổng khối lượng đã xếp</span><span class="v" id="statWeight">—</span></div>
+      <div class="stat-line"><span>Số kiện đã xếp</span><span class="v" id="statCount">—</span></div>
+    </div>
+    <div id="perContainerList" style="margin-top:8px;"></div>
+    <div id="warnBox" style="display:none;" class="warn-box"></div>
+  </div>
+</div>
+
+<div id="viewport">
+  <div id="canvas-holder"></div>
+
+  <div id="emptyState">
+    <h2>Chưa có dữ liệu xếp hàng</h2>
+    <p>Nhập kích thước container và danh sách kiện hàng bên trái, rồi bấm "Xếp hàng vào container" để xem mô phỏng 3D.</p>
+  </div>
+
+  <div class="overlay" id="topbar" style="display:none;">
+    <div id="readout">
+      <div class="rt-title">Container</div>
+      <div class="rt-line"><span>Kích thước</span><b id="rdSize">—</b></div>
+      <div class="rt-line"><span>Thể tích dùng</span><b id="rdVol">—</b></div>
+      <div class="rt-line"><span>Khối lượng</span><b id="rdWeight">—</b></div>
+    </div>
+    <div id="legend">
+      <div class="lg-title">CHÚ GIẢI</div>
+      <div id="legendRows"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="containerTabs" style="display:none;"></div>
+
+  <div class="overlay" id="viewbtns" style="display:none;">
+    <button data-view="iso" class="active">Góc nghiêng</button>
+    <button data-view="front">Nhìn dọc</button>
+    <button data-view="side">Nhìn ngang</button>
+    <button data-view="top">Từ trên</button>
+  </div>
+
+  <div class="overlay" id="controlbar" style="display:none;">
+    <button class="ctrl-btn" id="stepBackBtn" title="Lùi một kiện">⏮</button>
+    <button class="ctrl-btn" id="playBtn" title="Phát/Tạm dừng">▶</button>
+    <button class="ctrl-btn" id="stepFwdBtn" title="Tiến một kiện">⏭</button>
+    <input type="range" id="scrub" min="0" max="0" value="0">
+    <span id="scrubLabel">0 / 0</span>
+    <select id="speedSel">
+      <option value="700">Chậm</option>
+      <option value="350" selected>Vừa</option>
+      <option value="120">Nhanh</option>
+    </select>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   1. PALETTE & STATE
+============================================================ */
+const PALETTE = ['#5B7C99','#B0553F','#7C8A5A','#8E6C88','#3E7C7C','#A88A4A','#5A6E8C','#8C5A5A','#4A7C5E','#6C6C8C','#9A6B3F','#4F7A9A'];
+let colorCursor = 0;
+function nextColor(){ const c = PALETTE[colorCursor % PALETTE.length]; colorCursor++; return c; }
+
+const boxRows = []; // {id, name, l, w, h, weight, qty, color}
+let rowIdSeq = 1;
+
+let packState = null; // { containerDims, containers:[{placed, unplaced, indexShown}], leftover, activeIndex }
+let currentIndex = 0;
+let isPlaying = false;
+let playTimer = null;
+
+function activeContainer(){
+  return packState ? packState.containers[packState.activeIndex] : null;
+}
+
+/* ============================================================
+   2. BOX TABLE UI
+============================================================ */
+const boxTbody = document.getElementById('boxTbody');
+
+function addBoxRow(data){
+  const id = rowIdSeq++;
+  const row = Object.assign({
+    id, name:'Kiện '+id, l:1, w:1, h:1, weight:100, qty:1, color: nextColor()
+  }, data||{});
+  boxRows.push(row);
+  renderBoxRow(row);
+}
+
+function renderBoxRow(row){
+  const tr = document.createElement('tr');
+  tr.dataset.id = row.id;
+  tr.innerHTML = `
+    <td><div class="name-cell"><span class="swatch" style="background:${row.color}"></span><input type="text" class="f-name" value="${row.name}"></div></td>
+    <td class="dim-cell"><input type="number" class="f-l" value="${row.l}" step="0.01" min="0.01"></td>
+    <td class="dim-cell"><input type="number" class="f-w" value="${row.w}" step="0.01" min="0.01"></td>
+    <td class="dim-cell"><input type="number" class="f-h" value="${row.h}" step="0.01" min="0.01"></td>
+    <td class="num-cell"><input type="number" class="f-weight" value="${row.weight}" step="1" min="0"></td>
+    <td class="qty-cell"><input type="number" class="f-qty" value="${row.qty}" step="1" min="1"></td>
+    <td><button class="del-btn" title="Xoá">×</button></td>
+  `;
+  boxTbody.appendChild(tr);
+
+  const bind = (cls, key, isNum) => {
+    tr.querySelector(cls).addEventListener('input', (e)=>{
+      row[key] = isNum ? parseFloat(e.target.value)||0 : e.target.value;
+    });
+  };
+  bind('.f-name','name',false);
+  bind('.f-l','l',true);
+  bind('.f-w','w',true);
+  bind('.f-h','h',true);
+  bind('.f-weight','weight',true);
+  bind('.f-qty','qty',true);
+
+  tr.querySelector('.del-btn').addEventListener('click', ()=>{
+    const idx = boxRows.findIndex(r=>r.id===row.id);
+    if(idx>-1) boxRows.splice(idx,1);
+    tr.remove();
+  });
+}
+
+document.getElementById('addRowBtn').addEventListener('click', ()=> addBoxRow());
+
+// default demo rows
+addBoxRow({name:'Kiện A', l:1.2, w:1.0, h:1.0, weight:500, qty:12});
+addBoxRow({name:'Kiện B', l:0.8, w:0.8, h:0.8, weight:200, qty:20});
+addBoxRow({name:'Kiện C', l:1.0, w:0.6, h:0.5, weight:80, qty:30});
+
+/* Container presets (kích thước lọt lòng xấp xỉ, mét) */
+const PRESETS = {
+  '20':   {L:5.9,  W:2.35, H:2.39},
+  '40':   {L:12.03,W:2.35, H:2.39},
+  '40hc': {L:12.03,W:2.35, H:2.69}
+};
+document.querySelectorAll('.chip[data-preset]').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const p = PRESETS[chip.dataset.preset];
+    document.getElementById('contL').value = p.L;
+    document.getElementById('contW').value = p.W;
+    document.getElementById('contH').value = p.H;
+  });
+});
+
+/* ============================================================
+   3. PACKING ALGORITHM  (X=dài, Y=cao/up, Z=rộng/sâu)
+============================================================ */
+function getOrientations(l,w,h,allowRotation){
+  if(allowRotation===false) return [[l,h,w]]; // keep as entered: L->length, H->height(up), W->depth
+  const perms = [[l,w,h],[l,h,w],[w,l,h],[w,h,l],[h,l,w],[h,w,l]];
+  const seen = new Set(); const out = [];
+  for(const p of perms){ const k=p.join(','); if(!seen.has(k)){ seen.add(k); out.push(p); } }
+  return out;
+}
+
+function packContainer(container, boxInstances, supportThreshold, maxWeight, opts){
+  opts = opts || {};
+  const allowRotation = opts.allowRotation !== false;
+  const prioritizeWeight = opts.prioritizeWeight !== false;
+  const insideOut = !!opts.insideOut;
+  supportThreshold = supportThreshold==null?0.6:supportThreshold;
+  const EPS = 1e-6;
+  const items = [...boxInstances].sort((a,b)=>{
+    if(prioritizeWeight) return b.weight-a.weight || (b.l*b.w*b.h)-(a.l*a.w*a.h);
+    return (b.l*b.w*b.h)-(a.l*a.w*a.h) || b.weight-a.weight;
+  });
+  const placed = [];
+  const unplaced = [];
+  let extremePoints = [{x:0,y:0,z:0}];
+  let currentWeight = 0;
+
+  function overlaps(a,b){
+    return a.x < b.x+b.l-EPS && a.x+a.l > b.x+EPS &&
+           a.y < b.y+b.h-EPS && a.y+a.h > b.y+EPS &&
+           a.z < b.z+b.w-EPS && a.z+a.w > b.z+EPS;
+  }
+  function supportRatio(cand){
+    if (cand.y <= EPS) return 1;
+    let supported = 0;
+    const footprintArea = cand.l*cand.w;
+    for(const p of placed){
+      if (Math.abs((p.y+p.h)-cand.y) < 1e-3){
+        const ox = Math.max(0, Math.min(cand.x+cand.l,p.x+p.l)-Math.max(cand.x,p.x));
+        const oz = Math.max(0, Math.min(cand.z+cand.w,p.z+p.w)-Math.max(cand.z,p.z));
+        supported += ox*oz;
+      }
+    }
+    return supported/footprintArea;
+  }
+  function dedupe(points){
+    const seen = new Set(); const out = [];
+    for(const p of points){
+      const key = p.x.toFixed(4)+','+p.y.toFixed(4)+','+p.z.toFixed(4);
+      if(!seen.has(key)){ seen.add(key); out.push(p); }
+    }
+    return out;
+  }
+
+  for(const item of items){
+    if(maxWeight && currentWeight + item.weight > maxWeight + EPS){
+      unplaced.push(item);
+      continue;
+    }
+    const orientations = getOrientations(item.l, item.w, item.h, allowRotation);
+    let best = null;
+    for(const pt of extremePoints){
+      for(const [dl,dh,dw] of orientations){
+        if (pt.x+dl > container.L+EPS || pt.y+dh>container.H+EPS || pt.z+dw>container.W+EPS) continue;
+        const cand = {x:pt.x,y:pt.y,z:pt.z,l:dl,h:dh,w:dw};
+        let collide = false;
+        for(const p of placed){ if(overlaps(cand,p)){ collide=true; break; } }
+        if(collide) continue;
+        if(supportRatio(cand) < supportThreshold) continue;
+        // insideOut: x (từ đầu container ra cửa) là ưu tiên áp đảo -> lấp đầy từng "lát cắt" rộng×cao trước khi tiến ra ngoài
+        // mặc định: y (chiều cao) áp đảo -> trải kín sàn trước rồi mới chồng lên
+        const score = insideOut ? (cand.x*1e6 + cand.y*1e3 + cand.z) : (cand.y*1e6 + cand.z*1e3 + cand.x);
+        if(!best || score < best.score) best = Object.assign({}, cand, {score});
+      }
+    }
+    if(best){
+      const placedBox = Object.assign({}, item, {x:best.x,y:best.y,z:best.z,l:best.l,h:best.h,w:best.w, order:placed.length});
+      placed.push(placedBox);
+      currentWeight += item.weight;
+      extremePoints.push({x:best.x+best.l,y:best.y,z:best.z});
+      extremePoints.push({x:best.x,y:best.y+best.h,z:best.z});
+      extremePoints.push({x:best.x,y:best.y,z:best.z+best.w});
+      extremePoints = extremePoints.filter(pt => !placed.some(p =>
+        pt.x>p.x-EPS && pt.x<p.x+p.l-EPS &&
+        pt.y>p.y-EPS && pt.y<p.y+p.h-EPS &&
+        pt.z>p.z-EPS && pt.z<p.z+p.w-EPS));
+      extremePoints = dedupe(extremePoints);
+    } else {
+      unplaced.push(item);
+    }
+  }
+  return {placed, unplaced};
+}
+
+// Auto-adds containers, one after another, until every box is placed,
+// a container comes back empty (nothing fits any more -> stop, avoid infinite loop),
+// or the optional maxContainers limit is reached.
+function packMultiple(container, instances, maxContainers, maxWeight, opts){
+  const containers = [];
+  let remaining = instances.slice();
+  while(remaining.length > 0){
+    if(maxContainers && containers.length >= maxContainers) break;
+    const r = packContainer(container, remaining, 0.6, maxWeight, opts);
+    if(r.placed.length === 0) break; // nothing fits anymore (too big, or 0 space) - stop
+    containers.push({placed:r.placed, unplaced:r.unplaced});
+    remaining = r.unplaced;
+  }
+  return {containers, leftover: remaining};
+}
+
+/* ============================================================
+   4. THREE.JS SCENE
+============================================================ */
+const holder = document.getElementById('canvas-holder');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+holder.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x11151a);
+scene.fog = new THREE.Fog(0x11151a, 20, 60);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 500);
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xfff2d9, 1.05);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048,2048);
+scene.add(dirLight);
+scene.add(dirLight.target);
+const fillLight = new THREE.DirectionalLight(0x8fb3ff, 0.28);
+scene.add(fillLight);
+
+// Group holding everything so we can re-center/rebuild easily
+let worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+/* ---- Orbit-style camera controls (manual, no addons) ---- */
+const camState = { theta: Math.PI/4*1.1, phi: 1.0, radius: 14, target: new THREE.Vector3(0,0,0) };
+function updateCamera(){
+  const p = camState;
+  camera.position.x = p.target.x + p.radius*Math.sin(p.phi)*Math.sin(p.theta);
+  camera.position.y = p.target.y + p.radius*Math.cos(p.phi);
+  camera.position.z = p.target.z + p.radius*Math.sin(p.phi)*Math.cos(p.theta);
+  camera.up.set(0,1,0);
+  camera.lookAt(p.target);
+}
+updateCamera();
+
+const dom = renderer.domElement;
+let dragging = false, lastX=0, lastY=0;
+const pointers = new Map();
+
+dom.addEventListener('pointerdown', (e)=>{
+  dom.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(pointers.size===1){ dragging = true; lastX = e.clientX; lastY = e.clientY; }
+});
+dom.addEventListener('pointermove', (e)=>{
+  if(!pointers.has(e.pointerId)) return;
+  const prev = pointers.get(e.pointerId);
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+
+  if(pointers.size===2){
+    const pts = [...pointers.values()];
+    const dist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+    if(dom._pinchDist){
+      const delta = dist - dom._pinchDist;
+      camState.radius = clamp(camState.radius - delta*0.03, dom._minR, dom._maxR);
+      updateCamera();
+    }
+    dom._pinchDist = dist;
+    return;
+  }
+
+  if(dragging && pointers.size===1){
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    camState.theta -= dx*0.006;
+    camState.phi = clamp(camState.phi - dy*0.006, 0.09, Math.PI-0.09);
+    updateCamera();
+  }
+});
+function endPointer(e){
+  pointers.delete(e.pointerId);
+  if(pointers.size<2) dom._pinchDist = null;
+  if(pointers.size===0) dragging = false;
+}
+dom.addEventListener('pointerup', endPointer);
+dom.addEventListener('pointercancel', endPointer);
+dom.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  camState.radius = clamp(camState.radius + e.deltaY*0.01, dom._minR||2, dom._maxR||80);
+  updateCamera();
+}, {passive:false});
+
+function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+
+function setView(name){
+  document.querySelectorAll('#viewbtns button').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  const presets = {
+    iso:   {theta: Math.PI/4*1.1, phi: 1.02},
+    front: {theta: 0, phi: Math.PI/2},
+    side:  {theta: Math.PI/2, phi: Math.PI/2},
+    top:   {theta: Math.PI/4*1.1, phi: 0.14}
+  };
+  const p = presets[name]; if(!p) return;
+  camState.theta = p.theta; camState.phi = p.phi;
+  updateCamera();
+}
+document.querySelectorAll('#viewbtns button').forEach(b=>{
+  b.addEventListener('click', ()=> setView(b.dataset.view));
+});
+
+function resizeRenderer(){
+  const w = holder.clientWidth, h = holder.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/Math.max(h,1);
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeRenderer);
+
+/* ============================================================
+   5. BUILD / RENDER SCENE FROM PACK RESULT
+============================================================ */
+let boxMeshes = []; // { mesh, edges, finalPos, order }
+
+function hexToThree(hex){ return new THREE.Color(hex); }
+
+function clearWorld(){
+  while(worldGroup.children.length) worldGroup.remove(worldGroup.children[0]);
+  boxMeshes = [];
+}
+
+function buildScene(container, placed, showTruck){
+  clearWorld();
+  const {L,W,H} = container;
+
+  // ---- Floor (grid texture) ----
+  const gridCanvas = document.createElement('canvas');
+  gridCanvas.width = 512; gridCanvas.height = 512;
+  const gctx = gridCanvas.getContext('2d');
+  gctx.fillStyle = '#1a2027'; gctx.fillRect(0,0,512,512);
+  gctx.strokeStyle = 'rgba(255,255,255,0.06)'; gctx.lineWidth = 2;
+  for(let i=0;i<=8;i++){
+    const p = i*64;
+    gctx.beginPath(); gctx.moveTo(p,0); gctx.lineTo(p,512); gctx.stroke();
+    gctx.beginPath(); gctx.moveTo(0,p); gctx.lineTo(512,p); gctx.stroke();
+  }
+  const gridTex = new THREE.CanvasTexture(gridCanvas);
+  gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
+  gridTex.repeat.set(20,20);
+
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(200,200),
+    new THREE.MeshStandardMaterial({map:gridTex, roughness:0.95, metalness:0.05})
+  );
+  floor.rotation.x = -Math.PI/2;
+  floor.position.set(L/2, -0.005, W/2);
+  floor.receiveShadow = true;
+  worldGroup.add(floor);
+
+  // ---- Container floor plate (bed) ----
+  const bed = new THREE.Mesh(
+    new THREE.BoxGeometry(L, 0.08, W),
+    new THREE.MeshStandardMaterial({color:0x2c343d, roughness:0.7, metalness:0.3})
+  );
+  bed.position.set(L/2, -0.04, W/2);
+  bed.receiveShadow = true;
+  bed.castShadow = true;
+  worldGroup.add(bed);
+
+  // ---- Container wireframe (corner posts + edges) ----
+  const edgesGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(L,H,W));
+  const edgesMat = new THREE.LineBasicMaterial({color:0xF2B705, transparent:true, opacity:0.65});
+  const contEdges = new THREE.LineSegments(edgesGeo, edgesMat);
+  contEdges.position.set(L/2, H/2, W/2);
+  worldGroup.add(contEdges);
+
+  // faint walls
+  const wallMat = new THREE.MeshBasicMaterial({color:0x9fb6c9, transparent:true, opacity:0.04, side:THREE.DoubleSide});
+  const wallGeo = new THREE.BoxGeometry(L,H,W);
+  const walls = new THREE.Mesh(wallGeo, wallMat);
+  walls.position.set(L/2,H/2,W/2);
+  worldGroup.add(walls);
+
+  // ---- Boxes ----
+  const dropHeight = H*1.8 + 2;
+  placed.slice().sort((a,b)=>a.order-b.order).forEach(b=>{
+    const geo = new THREE.BoxGeometry(b.l*0.985, b.h*0.985, b.w*0.985);
+    const mat = new THREE.MeshStandardMaterial({color: hexToThree(b.color), roughness:0.65, metalness:0.08});
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    const finalPos = new THREE.Vector3(b.x+b.l/2, b.y+b.h/2, b.z+b.w/2);
+    mesh.position.set(finalPos.x, dropHeight, finalPos.z);
+    mesh.visible = false;
+
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({color:0x11151a, transparent:true, opacity:0.55})
+    );
+    mesh.add(edges);
+
+    worldGroup.add(mesh);
+    boxMeshes.push({mesh, finalPos, order:b.order, animT:1, animating:false});
+  });
+
+  // ---- Truck cab ----
+  if(showTruck){
+    buildTruck(L, W, H);
+  }
+
+  // camera target & framing
+  camState.target.set(L/2, H*0.35, W/2);
+  const maxDim = Math.max(L,W,H);
+  camState.radius = clamp(maxDim*1.35, 4, 60);
+  dom._minR = maxDim*0.35; dom._maxR = maxDim*4;
+  setView('iso');
+}
+
+function buildTruck(L,W,H){
+  const truck = new THREE.Group();
+  const chassisMat = new THREE.MeshStandardMaterial({color:0x2a2f36, roughness:0.6, metalness:0.5});
+  const cabMat = new THREE.MeshStandardMaterial({color:0xC94C3E, roughness:0.4, metalness:0.35});
+  const glassMat = new THREE.MeshStandardMaterial({color:0x9fd6e8, roughness:0.15, metalness:0.6, transparent:true, opacity:0.75});
+  const wheelMat = new THREE.MeshStandardMaterial({color:0x14161a, roughness:0.9});
+  const rimMat = new THREE.MeshStandardMaterial({color:0x8a8f96, roughness:0.5, metalness:0.7});
+
+  const cabW = Math.min(W*0.98, 2.4);
+  const wheelR = 0.46;
+  const chassisY = wheelR*1.15;
+  const cabLen = 2.1;
+  const cabX = -cabLen/2 - 0.35; // attach at x<0, "door" end is at x=L
+
+  // cab body
+  const cabBody = new THREE.Mesh(new THREE.BoxGeometry(cabLen, 1.9, cabW), cabMat);
+  cabBody.position.set(cabX, chassisY + 0.95, W/2);
+  cabBody.castShadow = true;
+  truck.add(cabBody);
+
+  // cab roof (slightly narrower, set back)
+  const cabRoof = new THREE.Mesh(new THREE.BoxGeometry(cabLen*0.62, 0.55, cabW*0.92), cabMat);
+  cabRoof.position.set(cabX-cabLen*0.14, chassisY + 1.9 + 0.27, W/2);
+  cabRoof.castShadow = true;
+  truck.add(cabRoof);
+
+  // windshield
+  const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.85, cabW*0.86), glassMat);
+  windshield.position.set(cabX+cabLen*0.28, chassisY+1.55, W/2);
+  truck.add(windshield);
+
+  // fuel tank
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,1.1,16), chassisMat);
+  tank.rotation.z = Math.PI/2;
+  tank.position.set(cabX+0.15, chassisY-0.05, W*0.18);
+  truck.add(tank);
+  const tank2 = tank.clone(); tank2.position.z = W*0.82; truck.add(tank2);
+
+  // chassis rail connecting cab to container (fifth wheel plate)
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.22, cabW*0.7), chassisMat);
+  rail.position.set(-0.55, chassisY-0.35, W/2);
+  truck.add(rail);
+
+  // wheels helper
+  function addWheelPair(x){
+    [0.12, W-0.12].forEach(z=>{
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(wheelR, wheelR, 0.38, 20), wheelMat);
+      wheel.rotation.x = Math.PI/2;
+      wheel.position.set(x, wheelR, z);
+      wheel.castShadow = true;
+      truck.add(wheel);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(wheelR*0.4, wheelR*0.4, 0.4, 12), rimMat);
+      rim.rotation.x = Math.PI/2;
+      rim.position.set(x, wheelR, z);
+      truck.add(rim);
+    });
+  }
+  addWheelPair(cabX+0.55);
+  addWheelPair(cabX-0.85);
+  // container axle wheels (near front of container, under the load)
+  addWheelPair(1.1);
+  addWheelPair(2.0);
+
+  worldGroup.add(truck);
+}
+
+/* ============================================================
+   6. ANIMATION / PLAYBACK
+============================================================ */
+function showUpTo(index, animate){
+  boxMeshes.forEach(bm=>{
+    if(bm.order < index){
+      if(!bm.mesh.visible){
+        bm.mesh.visible = true;
+        if(animate){
+          bm.animating = true; bm.animT = 0;
+          bm.startY = bm.finalPos.y + (packState.containerDims.H*1.8+2) - bm.finalPos.y;
+        } else {
+          bm.mesh.position.copy(bm.finalPos);
+          bm.animating = false;
+        }
+      }
+    } else {
+      bm.mesh.visible = false;
+      bm.animating = false;
+    }
+  });
+}
+
+function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+
+let lastFrameTime = performance.now();
+function animateLoop(now){
+  const dt = Math.min(now - lastFrameTime, 50);
+  lastFrameTime = now;
+  boxMeshes.forEach(bm=>{
+    if(bm.animating){
+      bm.animT += dt/380;
+      if(bm.animT>=1){ bm.animT=1; bm.animating=false; }
+      const t = easeOutCubic(bm.animT);
+      const dropFrom = bm.finalPos.y + (packState.containerDims.H*1.8+2);
+      bm.mesh.position.y = dropFrom + (bm.finalPos.y - dropFrom)*t;
+      bm.mesh.position.x = bm.finalPos.x;
+      bm.mesh.position.z = bm.finalPos.z;
+    }
+  });
+  renderer.render(scene, camera);
+  requestAnimationFrame(animateLoop);
+}
+requestAnimationFrame(animateLoop);
+
+/* ---- Playback controls ---- */
+const scrub = document.getElementById('scrub');
+const scrubLabel = document.getElementById('scrubLabel');
+const playBtn = document.getElementById('playBtn');
+
+function setIndex(i, animate){
+  const ac = activeContainer();
+  const total = ac ? ac.placed.length : 0;
+  currentIndex = clamp(i, 0, total);
+  if(ac) ac.indexShown = currentIndex;
+  scrub.value = currentIndex;
+  scrubLabel.textContent = currentIndex + ' / ' + total;
+  showUpTo(currentIndex, animate);
+}
+
+function stopPlay(){
+  isPlaying = false;
+  playBtn.textContent = '▶';
+  if(playTimer){ clearInterval(playTimer); playTimer = null; }
+}
+function startPlay(){
+  const ac = activeContainer();
+  if(!ac || ac.placed.length===0) return;
+  if(currentIndex >= ac.placed.length) setIndex(0,false);
+  isPlaying = true;
+  playBtn.textContent = '⏸';
+  const speed = parseInt(document.getElementById('speedSel').value,10);
+  playTimer = setInterval(()=>{
+    if(currentIndex >= ac.placed.length){ stopPlay(); return; }
+    setIndex(currentIndex+1, true);
+  }, speed);
+}
+playBtn.addEventListener('click', ()=> isPlaying ? stopPlay() : startPlay());
+document.getElementById('stepFwdBtn').addEventListener('click', ()=>{ stopPlay(); setIndex(currentIndex+1, true); });
+document.getElementById('stepBackBtn').addEventListener('click', ()=>{ stopPlay(); setIndex(currentIndex-1, false); });
+scrub.addEventListener('input', ()=>{ stopPlay(); setIndex(parseInt(scrub.value,10), false); });
+document.getElementById('speedSel').addEventListener('change', ()=>{ if(isPlaying){ stopPlay(); startPlay(); } });
+
+/* ============================================================
+   7. PACK BUTTON / RESULTS UI
+============================================================ */
+function fmt(n, d){ return n.toLocaleString('vi-VN', {maximumFractionDigits:d==null?1:d}); }
+
+function runPack(){
+  const container = {
+    L: parseFloat(document.getElementById('contL').value)||0,
+    W: parseFloat(document.getElementById('contW').value)||0,
+    H: parseFloat(document.getElementById('contH').value)||0
+  };
+  const maxWeightRaw = document.getElementById('maxWeight').value;
+  const maxWeight = maxWeightRaw ? parseFloat(maxWeightRaw) : null;
+  const maxContainersRaw = document.getElementById('maxContainers').value;
+  const maxContainers = maxContainersRaw ? Math.max(1, Math.floor(parseFloat(maxContainersRaw))) : null;
+
+  let instances = [];
+  boxRows.forEach(r=>{
+    const qty = Math.max(0, Math.floor(r.qty)||0);
+    for(let i=0;i<qty;i++){
+      instances.push({name:r.name, l:r.l, w:r.w, h:r.h, weight:r.weight, color:r.color});
+    }
+  });
+
+  if(container.L<=0||container.W<=0||container.H<=0){
+    alert('Vui lòng nhập kích thước container hợp lệ.');
+    return;
+  }
+  if(instances.length===0){
+    alert('Vui lòng thêm ít nhất một loại kiện hàng có số lượng > 0.');
+    return;
+  }
+
+  const totalRequested = instances.length;
+  const opts = {
+    allowRotation: document.getElementById('allowRotation').checked,
+    prioritizeWeight: document.getElementById('prioritizeWeight').checked,
+    insideOut: document.getElementById('insideOutPriority').checked
+  };
+  const {containers, leftover} = packMultiple(container, instances, maxContainers, maxWeight, opts);
+
+  if(containers.length===0){
+    alert('Không có kiện hàng nào vừa với container này (kiểm tra lại kích thước kiện hàng so với container).');
+    return;
+  }
+
+  containers.forEach(c => { c.indexShown = c.placed.length; });
+  packState = { containerDims: container, containers, leftover, activeIndex: 0 };
+
+  // ---- aggregate stats ----
+  const contVol = container.L*container.W*container.H;
+  let totalUsedVol = 0, totalUsedWeight = 0, totalPlacedCount = 0;
+  containers.forEach(c=>{
+    totalUsedVol += c.placed.reduce((s,b)=>s+b.l*b.w*b.h,0);
+    totalUsedWeight += c.placed.reduce((s,b)=>s+b.weight,0);
+    totalPlacedCount += c.placed.length;
+  });
+  const avgUtil = totalUsedVol/(contVol*containers.length)*100;
+
+  document.getElementById('statContainers').textContent = containers.length;
+  document.getElementById('statVol').textContent = fmt(avgUtil,1)+'%';
+  document.getElementById('statWeight').textContent = fmt(totalUsedWeight,0)+' kg';
+  document.getElementById('statCount').textContent = totalPlacedCount+' / '+totalRequested;
+
+  // ---- per-container breakdown list ----
+  const pcList = document.getElementById('perContainerList');
+  pcList.innerHTML = '';
+  containers.forEach((c,i)=>{
+    const util = (c.placed.reduce((s,b)=>s+b.l*b.w*b.h,0)/contVol*100);
+    const row = document.createElement('div');
+    row.className = 'pc-row' + (i===0?' active':'');
+    row.dataset.idx = i;
+    row.innerHTML = `<span>Cont. ${i+1}</span><span class="pc-bar"><span class="pc-bar-fill" style="width:${clamp(util,0,100)}%"></span></span><span>${fmt(util,0)}%</span>`;
+    row.addEventListener('click', ()=> switchContainer(i));
+    pcList.appendChild(row);
+  });
+
+  // ---- warnings ----
+  const warnBox = document.getElementById('warnBox');
+  let warnMsgs = [];
+  if(leftover.length>0){
+    const byName = {};
+    leftover.forEach(b=>{ byName[b.name] = (byName[b.name]||0)+1; });
+    const parts = Object.entries(byName).map(([n,c])=>n+' × '+c).join(', ');
+    if(maxContainers && containers.length>=maxContainers){
+      warnMsgs.push('Đã đạt giới hạn '+maxContainers+' container. Còn thiếu chỗ cho: '+parts+'. Tăng số container tối đa để xếp hết.');
+    } else {
+      const rotHint = opts.allowRotation ? '' : ' Thử bật "Cho phép xoay thùng hàng" nếu kiện chỉ vừa khi xoay hướng khác.';
+      warnMsgs.push('Không đủ chỗ cho: '+parts+' (kiện có thể lớn hơn container ở hướng hiện tại).'+rotHint);
+    }
+  }
+  if(maxWeight){
+    const overWeightConts = containers.filter(c=>c.placed.reduce((s,b)=>s+b.weight,0) > maxWeight);
+    if(overWeightConts.length){
+      warnMsgs.push('Có container vượt tải trọng tối đa ('+fmt(maxWeight,0)+' kg) — kiểm tra lại.');
+    }
+  }
+  if(warnMsgs.length){
+    warnBox.style.display = 'block';
+    warnBox.textContent = warnMsgs.join(' ');
+  } else {
+    warnBox.style.display = 'none';
+  }
+
+  // ---- container tabs in viewport ----
+  const tabsEl = document.getElementById('containerTabs');
+  tabsEl.innerHTML = '';
+  tabsEl.style.display = containers.length>1 ? 'flex' : 'none';
+  containers.forEach((c,i)=>{
+    const btn = document.createElement('button');
+    btn.className = 'cont-tab' + (i===0?' active':'');
+    btn.textContent = 'Container ' + (i+1);
+    btn.addEventListener('click', ()=> switchContainer(i));
+    tabsEl.appendChild(btn);
+  });
+
+  document.getElementById('emptyState').style.display = 'none';
+  ['topbar','viewbtns','controlbar'].forEach(id=>document.getElementById(id).style.display='flex');
+  resizeRenderer();
+
+  switchContainer(0, true);
+}
+
+function switchContainer(idx, autoPlay){
+  if(!packState || !packState.containers[idx]) return;
+  stopPlay();
+  packState.activeIndex = idx;
+
+  document.querySelectorAll('.cont-tab').forEach((b,i)=>b.classList.toggle('active', i===idx));
+  document.querySelectorAll('.pc-row').forEach((r)=>r.classList.toggle('active', parseInt(r.dataset.idx,10)===idx));
+
+  const ac = activeContainer();
+  const showTruck = document.getElementById('truckToggle').checked;
+  buildScene(packState.containerDims, ac.placed, showTruck);
+
+  // legend reflects the container currently being viewed
+  const legendRows = document.getElementById('legendRows');
+  legendRows.innerHTML = '';
+  const typeMap = new Map();
+  boxRows.forEach(r=>{
+    const placedCount = ac.placed.filter(b=>b.name===r.name && b.color===r.color).length;
+    if(placedCount>0) typeMap.set(r.name+'|'+r.color, {name:r.name, color:r.color, placed:placedCount});
+  });
+  typeMap.forEach(t=>{
+    const row = document.createElement('div');
+    row.className = 'lg-row';
+    row.innerHTML = `<span class="swatch" style="background:${t.color}"></span><span class="lg-name">${t.name}</span><span>${t.placed}</span>`;
+    legendRows.appendChild(row);
+  });
+
+  const contVol = packState.containerDims.L*packState.containerDims.W*packState.containerDims.H;
+  const usedVol = ac.placed.reduce((s,b)=>s+b.l*b.w*b.h,0);
+  const usedWeight = ac.placed.reduce((s,b)=>s+b.weight,0);
+  document.getElementById('rdSize').textContent = `${fmt(packState.containerDims.L,2)}×${fmt(packState.containerDims.W,2)}×${fmt(packState.containerDims.H,2)} m`;
+  document.getElementById('rdVol').textContent = fmt(usedVol/contVol*100,1)+'%';
+  document.getElementById('rdWeight').textContent = fmt(usedWeight,0)+' kg';
+
+  scrub.max = ac.placed.length;
+  if(autoPlay){
+    setIndex(0, false);
+    setTimeout(startPlay, 250);
+  } else {
+    setIndex(ac.placed.length, false); // show fully loaded instantly when switching tabs
+  }
+}
+
+document.getElementById('packBtn').addEventListener('click', runPack);
+document.getElementById('truckToggle').addEventListener('change', ()=>{
+  if(packState){
+    const wasIndex = currentIndex;
+    const ac = activeContainer();
+    buildScene(packState.containerDims, ac.placed, document.getElementById('truckToggle').checked);
+    setIndex(wasIndex, false);
+  }
+});
+
+/* initial size */
+window.addEventListener('load', resizeRenderer);
+resizeRenderer();
+
+})();
+</script>
+</body>
+</html>
